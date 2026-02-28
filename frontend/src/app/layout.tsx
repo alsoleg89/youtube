@@ -5,8 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
 export const metadata: Metadata = {
-  title: "YouTube → Articles",
-  description: "Конвертируйте YouTube видео в статьи для Medium, Habr и LinkedIn",
+  title: "Content Hub",
+  description:
+    "Конвертируйте YouTube видео, статьи, PDF и EPUB в контент для Medium, Habr, LinkedIn, ResearchGate",
 };
 
 export default function RootLayout({

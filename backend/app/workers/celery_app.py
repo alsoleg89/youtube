@@ -1,6 +1,11 @@
+import logging
+
 from celery import Celery
+from celery.signals import worker_ready
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 celery_app = Celery(
     "workers",
@@ -20,3 +25,12 @@ celery_app.conf.update(
 )
 
 celery_app.autodiscover_tasks(["app.workers"])
+
+
+@worker_ready.connect
+def _ollama_preflight_on_worker_start(**kwargs):
+    if settings.llm_provider != "local_ollama":
+        return
+    from app.providers.ollama_preflight import check_ollama_ready
+
+    check_ollama_ready()

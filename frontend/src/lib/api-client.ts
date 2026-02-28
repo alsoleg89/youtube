@@ -1,8 +1,10 @@
 import { API_BASE } from "./constants";
 import type {
-  CreateVideoResponse,
-  RegenerateVideoResponse,
-  VideoResponse,
+  CreateSourceResponse,
+  RegenerateResponse,
+  SourceListResponse,
+  SourceResponse,
+  SourceType,
 } from "@/types/video";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -19,21 +21,52 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export async function createVideo(url: string): Promise<CreateVideoResponse> {
-  return request<CreateVideoResponse>("/api/videos", {
+export async function createSource(
+  url: string,
+  sourceType: SourceType = "youtube",
+): Promise<CreateSourceResponse> {
+  return request<CreateSourceResponse>("/api/sources", {
     method: "POST",
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, source_type: sourceType }),
   });
 }
 
-export async function getVideo(id: string): Promise<VideoResponse> {
-  return request<VideoResponse>(`/api/videos/${id}`);
+export async function uploadSource(
+  file: File,
+): Promise<CreateSourceResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${API_BASE}/api/sources/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(body || `Upload failed with status ${res.status}`);
+  }
+
+  return res.json();
 }
 
-export async function regenerateVideo(
+export async function getSource(id: string): Promise<SourceResponse> {
+  return request<SourceResponse>(`/api/sources/${id}`);
+}
+
+export async function regenerateSource(
   id: string,
-): Promise<RegenerateVideoResponse> {
-  return request<RegenerateVideoResponse>(`/api/videos/${id}/regenerate`, {
+): Promise<RegenerateResponse> {
+  return request<RegenerateResponse>(`/api/sources/${id}/regenerate`, {
     method: "POST",
   });
+}
+
+export async function listSources(
+  limit = 20,
+  offset = 0,
+): Promise<SourceListResponse> {
+  return request<SourceListResponse>(
+    `/api/sources?limit=${limit}&offset=${offset}`,
+  );
 }

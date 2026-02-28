@@ -29,6 +29,7 @@ services:
     build:
       context: ..
       dockerfile: infra/Dockerfile.backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
     depends_on:
@@ -38,8 +39,11 @@ services:
         condition: service_healthy
     env_file:
       - ../.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ../backend:/app
+      - uploads:/tmp/app
 
   worker:
     build:
@@ -53,17 +57,43 @@ services:
         condition: service_healthy
     env_file:
       - ../.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ../backend:/app
+      - uploads:/tmp/app
 
   frontend:
     build:
       context: ..
       dockerfile: infra/Dockerfile.frontend
+      target: dev
       args:
         NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
       - "3000:3000"
+    volumes:
+      - ../frontend/src:/app/src
+
+  # ---------------------------------------------------------------------------
+  # Ollama (LOCAL LLM) — uncomment for Linux with NVIDIA GPU.
+  # On macOS Apple Silicon run Ollama natively on host for Metal acceleration.
+  # ---------------------------------------------------------------------------
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
 
 volumes:
   pgdata:
+  uploads:
+  # ollama_data:

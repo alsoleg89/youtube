@@ -1,5 +1,3 @@
-export const POLL_INTERVAL = 3000;
-
 export const TERMINAL_STATUSES = ["approved", "needs_review", "failed"] as const;
 
 export const API_BASE =
@@ -16,3 +14,15 @@ export const STAGE_LABELS: Record<string, string> = {
   done: "Готово",
   failed: "Ошибка",
 };
+
+export const CHANNEL_LABELS: Record<string, string> = {
+  medium_text: "Medium",
+  habr_text: "Habr",
+  linkedin_text: "LinkedIn",
+  research_article: "ResearchGate",
+  banana_video_prompt: "Видео-промпт",
+};
+
+export const HIDDEN_PAYLOAD_KEYS = new Set([
+  "reduce_summary_text",
+]);

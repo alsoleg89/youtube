@@ -35,6 +35,8 @@ services:
         condition: service_healthy
     env_file:
       - ../.env
+    volumes:
+      - uploads:/tmp/app
 
   worker:
     build:
@@ -49,6 +51,8 @@ services:
         condition: service_healthy
     env_file:
       - ../.env
+    volumes:
+      - uploads:/tmp/app
 
   frontend:
     build:
@@ -71,3 +75,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:

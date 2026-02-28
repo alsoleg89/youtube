@@ -31,7 +31,7 @@ class YouTubeService(BaseYouTubeService):
     def extract(self, url: str, video_id_db: str) -> dict:
         yt_id = self._extract_video_id(url)
 
-        text, meta = self._try_captions(yt_id)
+        text, meta = self._try_captions(yt_id, url)
         if text:
             return {"source": "captions", "text": text, "meta": meta}
 
@@ -39,7 +39,20 @@ class YouTubeService(BaseYouTubeService):
 
     # ------------------------------------------------------------------
 
-    def _try_captions(self, yt_id: str) -> tuple[str | None, dict]:
+    def _fetch_title(self, url: str) -> str | None:
+        try:
+            import yt_dlp
+
+            with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True}) as ydl:
+                info = ydl.extract_info(url, download=False)
+                return info.get("title")
+        except Exception as e:
+            logger.warning("Could not fetch title: %s", e)
+            return None
+
+    def _try_captions(self, yt_id: str, url: str) -> tuple[str | None, dict]:
+        title = self._fetch_title(url)
+
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
 
@@ -47,7 +60,10 @@ class YouTubeService(BaseYouTubeService):
                 yt_id, languages=["ru", "en"]
             )
             text = " ".join(e["text"] for e in entries)
-            return text, {"language": "ru/en", "source": "captions"}
+            meta = {"language": "ru/en", "source": "captions"}
+            if title:
+                meta["title"] = title
+            return text, meta
         except Exception:
             pass
 
@@ -56,10 +72,16 @@ class YouTubeService(BaseYouTubeService):
 
             entries = YouTubeTranscriptApi.get_transcript(yt_id)
             text = " ".join(e["text"] for e in entries)
-            return text, {"language": "auto", "source": "captions"}
+            meta = {"language": "auto", "source": "captions"}
+            if title:
+                meta["title"] = title
+            return text, meta
         except Exception as e:
             logger.warning("Captions unavailable for %s: %s", yt_id, e)
-            return None, {}
+            meta = {}
+            if title:
+                meta["title"] = title
+            return None, meta
 
     def _download_audio(self, url: str, yt_id: str, video_id_db: str) -> dict:
         import yt_dlp
@@ -67,10 +89,19 @@ class YouTubeService(BaseYouTubeService):
         work_dir = os.path.join(settings.tmp_dir, video_id_db)
         os.makedirs(work_dir, exist_ok=True)
 
+        max_dur = settings.max_video_duration
+
+        def _check_duration(info, *, incomplete):
+            duration = info.get("duration") or 0
+            if duration > max_dur:
+                return f"video_too_long: duration {duration}s exceeds {max_dur}s limit"
+            return None
+
         output_tpl = os.path.join(work_dir, "audio.%(ext)s")
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": output_tpl,
+            "match_filter": _check_duration,
             "postprocessors": [
                 {
                     "key": "FFmpegExtractAudio",
@@ -85,12 +116,6 @@ class YouTubeService(BaseYouTubeService):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             duration = info.get("duration", 0)
-
-        if duration > settings.max_video_duration:
-            raise ValueError(
-                f"video_too_long: duration {duration}s exceeds "
-                f"{settings.max_video_duration}s limit"
-            )
 
         audio_file = os.path.join(work_dir, "audio.mp3")
         if not os.path.exists(audio_file):
@@ -107,5 +132,6 @@ class YouTubeService(BaseYouTubeService):
             "language": info.get("language", "unknown"),
             "duration_sec": duration,
             "source": "whisper",
+            "title": info.get("title", ""),
         }
         return {"source": "whisper", "audio_path": audio_file, "meta": meta}

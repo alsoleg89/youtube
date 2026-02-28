@@ -1,18 +1,61 @@
 "use client";
 
-import { use } from "react";
 import Link from "next/link";
-import { useVideoPolling } from "@/lib/use-polling";
+import { useSourcePolling } from "@/lib/use-polling";
 import { StatusTracker } from "@/components/status-tracker";
-import { ResultTabs } from "@/components/result-tabs";
+import { ChannelTabs } from "@/components/result-tabs";
+import { HIDDEN_PAYLOAD_KEYS } from "@/lib/constants";
 
-export default function VideoPage({
+const PLATFORM_TO_PAYLOAD: Record<string, string> = {
+  medium: "medium_text",
+  habr: "habr_text",
+  linkedin: "linkedin_text",
+  research_article: "research_article",
+  banana_video_prompt: "banana_video_prompt",
+};
+
+function getPassedPayload(
+  payload: Record<string, unknown>,
+  report: Record<string, unknown>,
+): Record<string, unknown> {
+  const failedKeys = new Set<string>();
+
+  for (const [platform, entry] of Object.entries(report)) {
+    const e = entry as Record<string, unknown>;
+    const payloadKey = PLATFORM_TO_PAYLOAD[platform] ?? platform;
+
+    if (Array.isArray(e?.checks)) {
+      if ((e.checks as { passed: boolean }[]).some((c) => !c.passed)) {
+        failedKeys.add(payloadKey);
+      }
+    } else if (e?.passed === false) {
+      failedKeys.add(payloadKey);
+    }
+  }
+
+  const passed: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(payload)) {
+    if (!failedKeys.has(k) && !HIDDEN_PAYLOAD_KEYS.has(k)) {
+      passed[k] = v;
+    }
+  }
+  return passed;
+}
+
+export default function SourcePage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = use(params);
-  const { video, error, isPolling } = useVideoPolling(id);
+  const { id } = params;
+  const { source, error, isPolling } = useSourcePolling(id);
+
+  const passedPayload =
+    source?.status === "needs_review" &&
+    source.content_payload &&
+    source.validation_report
+      ? getPassedPayload(source.content_payload, source.validation_report)
+      : null;
 
   return (
     <main className="min-h-screen px-4 py-8 sm:py-12">
@@ -32,11 +75,11 @@ export default function VideoPage({
 
         <h1 className="text-3xl sm:text-4xl font-bold mb-8">
           <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-            Обработка видео
+            Обработка источника
           </span>
         </h1>
 
-        {error && !video && (
+        {error && !source && (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 sm:p-8">
             <div className="flex items-start gap-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/20">
@@ -52,23 +95,23 @@ export default function VideoPage({
           </div>
         )}
 
-        {!video && !error && (
+        {!source && !error && (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-700 border-t-indigo-500" />
             <p className="mt-4 text-zinc-500">Загрузка…</p>
           </div>
         )}
 
-        {video && (
+        {source && (
           <div className="space-y-8">
-            {video.status !== "approved" && (
+            {source.status !== "approved" && (
               <StatusTracker
-                video={video}
+                source={source}
                 onRegenerate={() => window.location.reload()}
               />
             )}
 
-            {video.status === "approved" && video.result && (
+            {source.status === "approved" && source.content_payload && (
               <>
                 <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6">
                   <div className="flex items-center gap-3">
@@ -82,8 +125,12 @@ export default function VideoPage({
                     </h3>
                   </div>
                 </div>
-                <ResultTabs result={video.result} />
+                <ChannelTabs contentPayload={source.content_payload} />
               </>
+            )}
+
+            {passedPayload && Object.keys(passedPayload).length > 0 && (
+              <ChannelTabs contentPayload={passedPayload} />
             )}
 
             {isPolling && (

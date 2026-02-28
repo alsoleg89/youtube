@@ -10,7 +10,12 @@ redis
 openai
 youtube-transcript-api
 yt-dlp
-pydub
 httpx
 python-multipart
 tiktoken
+pdfplumber
+ebooklib
+beautifulsoup4
+newspaper4k
+lxml
+slowapi

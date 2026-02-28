@@ -8,14 +8,9 @@ export interface ErrorInfo {
   message: string;
 }
 
-export interface ResultInfo {
-  medium_text?: string;
-  habr_text?: string;
-  linkedin_text?: string;
-  validation_report?: Record<string, unknown>;
-}
+export type SourceType = "youtube" | "pdf" | "epub" | "web";
 
-export type VideoStatus =
+export type SourceStatus =
   | "queued"
   | "extracting"
   | "transcribing"
@@ -27,20 +22,36 @@ export type VideoStatus =
   | "needs_review"
   | "failed";
 
-export interface VideoResponse {
-  video_id: string;
-  status: VideoStatus;
+export interface SourceResponse {
+  source_id: string;
+  source_type: SourceType;
+  status: SourceStatus;
   progress: ProgressInfo | null;
   error: ErrorInfo | null;
-  result: ResultInfo | null;
+  content_payload: Record<string, unknown> | null;
+  validation_report: Record<string, unknown> | null;
 }
 
-export interface CreateVideoResponse {
-  video_id: string;
+export interface CreateSourceResponse {
+  source_id: string;
+  source_type: SourceType;
   status: "queued";
 }
 
-export interface RegenerateVideoResponse {
-  video_id: string;
+export interface RegenerateResponse {
+  source_id: string;
   status: string;
+}
+
+export interface SourceListItem {
+  source_id: string;
+  title: string | null;
+  source_type: SourceType;
+  status: SourceStatus;
+  created_at: string;
+}
+
+export interface SourceListResponse {
+  items: SourceListItem[];
+  total: number;
 }

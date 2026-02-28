@@ -12,13 +12,18 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Video(Base):
-    __tablename__ = "videos"
+class Source(Base):
+    __tablename__ = "sources"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    url: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="youtube"
+    )
+    file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="queued")
     progress_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     regen_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -32,13 +37,13 @@ class Video(Base):
     )
 
     transcript: Mapped["Transcript | None"] = relationship(
-        back_populates="video", uselist=False
+        back_populates="source", uselist=False
     )
     generated_content: Mapped["GeneratedContent | None"] = relationship(
-        back_populates="video", uselist=False
+        back_populates="source", uselist=False
     )
     validations: Mapped[list["Validation"]] = relationship(
-        back_populates="video", order_by="Validation.created_at"
+        back_populates="source", order_by="Validation.created_at"
     )
 
 
@@ -48,14 +53,14 @@ class Transcript(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    video_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("videos.id"), unique=True
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sources.id"), unique=True
     )
-    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_label: Mapped[str] = mapped_column(String(20), nullable=False)
     raw_text: Mapped[str] = mapped_column(Text, nullable=False)
     meta_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
-    video: Mapped["Video"] = relationship(back_populates="transcript")
+    source: Mapped["Source"] = relationship(back_populates="transcript")
 
 
 class GeneratedContent(Base):
@@ -64,15 +69,12 @@ class GeneratedContent(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    video_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("videos.id"), unique=True
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sources.id"), unique=True
     )
-    medium_text: Mapped[str] = mapped_column(Text, nullable=False)
-    habr_text: Mapped[str] = mapped_column(Text, nullable=False)
-    linkedin_text: Mapped[str] = mapped_column(Text, nullable=False)
-    reduce_summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
 
-    video: Mapped["Video"] = relationship(back_populates="generated_content")
+    source: Mapped["Source"] = relationship(back_populates="generated_content")
 
 
 class Validation(Base):
@@ -81,8 +83,8 @@ class Validation(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    video_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("videos.id")
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sources.id")
     )
     overall_verdict: Mapped[str] = mapped_column(String(20), nullable=False)
     report_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
@@ -90,4 +92,4 @@ class Validation(Base):
         DateTime(timezone=True), nullable=False, default=utcnow
     )
 
-    video: Mapped["Video"] = relationship(back_populates="validations")
+    source: Mapped["Source"] = relationship(back_populates="validations")
